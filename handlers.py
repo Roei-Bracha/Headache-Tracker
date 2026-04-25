@@ -269,3 +269,66 @@ async def _ask_coffee_count(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         reply_markup=keyboard,
     )
     return COFFEE_COUNT
+
+
+@authorized
+async def handle_coffee_count(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    count = int(query.data)
+    context.user_data["coffee_count"] = count
+    context.user_data["coffee_times"] = []
+
+    if count == 0:
+        return await _ask_medication(update, context)
+
+    context.user_data["cup_index"] = 1
+    context.user_data["coffee_time_retries"] = 0
+    await _send_message(update, context, text="באיזו שעה שתית את כוס 1? (HH:MM)")
+    return COFFEE_TIME_LOOP
+
+
+@authorized
+async def handle_coffee_time_loop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_data = context.user_data
+    cup_index = user_data["cup_index"]
+    coffee_count = user_data["coffee_count"]
+    retries = user_data.get("coffee_time_retries", 0)
+
+    parsed = parse_hhmm(update.message.text)
+
+    if parsed is None:
+        retries += 1
+        user_data["coffee_time_retries"] = retries
+        if retries >= 3:
+            user_data.clear()
+            await update.message.reply_text("נסיון לא תקין שלוש פעמים. בוטל.")
+            return ConversationHandler.END
+        await update.message.reply_text("פורמט לא תקין. נסה שוב (HH:MM)")
+        return COFFEE_TIME_LOOP
+
+    user_data["coffee_times"].append(parsed)
+    user_data["coffee_time_retries"] = 0
+
+    if cup_index >= coffee_count:
+        return await _ask_medication(update, context)
+
+    user_data["cup_index"] = cup_index + 1
+    await update.message.reply_text(f"באיזו שעה שתית את כוס {cup_index + 1}? (HH:MM)")
+    return COFFEE_TIME_LOOP
+
+
+async def _ask_medication(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(config.MEDICATION_LABELS["none"], callback_data="none"),
+            InlineKeyboardButton(config.MEDICATION_LABELS["ibuprofen_200"], callback_data="ibuprofen_200"),
+            InlineKeyboardButton(config.MEDICATION_LABELS["ibuprofen_512"], callback_data="ibuprofen_512"),
+        ],
+        [
+            InlineKeyboardButton(config.MEDICATION_LABELS["optalgin_1"], callback_data="optalgin_1"),
+            InlineKeyboardButton(config.MEDICATION_LABELS["optalgin_2"], callback_data="optalgin_2"),
+        ],
+    ])
+    await _send_message(update, context, text="האם לקחת תרופה?", reply_markup=keyboard)
+    return MEDICATION

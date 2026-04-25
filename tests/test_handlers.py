@@ -122,3 +122,68 @@ async def test_hydration_amount_text_invalid_cups():
     result = await handle_hydration_amount_text(update, context)
     assert result == HYDRATION_AMOUNT
     assert context.user_data["hydration_retries"] == 1
+
+
+from handlers import handle_coffee_count, handle_coffee_time_loop, COFFEE_TIME_LOOP, MEDICATION
+
+
+async def test_coffee_count_zero_skips_to_medication():
+    update, context = await _make_callback_update("0")
+    context.user_data = {}
+    result = await handle_coffee_count(update, context)
+    assert result == MEDICATION
+    assert context.user_data["coffee_count"] == 0
+    assert context.user_data["coffee_times"] == []
+
+
+async def test_coffee_count_nonzero_enters_loop():
+    update, context = await _make_callback_update("2")
+    context.user_data = {}
+    result = await handle_coffee_count(update, context)
+    assert result == COFFEE_TIME_LOOP
+    assert context.user_data["coffee_count"] == 2
+    assert context.user_data["cup_index"] == 1
+
+
+async def test_coffee_time_loop_valid_advances_cup():
+    update, context = await _make_message_update("08:30")
+    context.user_data = {
+        "coffee_count": 2, "cup_index": 1,
+        "coffee_times": [], "coffee_time_retries": 0,
+    }
+    result = await handle_coffee_time_loop(update, context)
+    assert result == COFFEE_TIME_LOOP
+    assert context.user_data["coffee_times"] == ["08:30"]
+    assert context.user_data["cup_index"] == 2
+
+
+async def test_coffee_time_loop_last_cup_advances_to_medication():
+    update, context = await _make_message_update("14:00")
+    context.user_data = {
+        "coffee_count": 2, "cup_index": 2,
+        "coffee_times": ["08:30"], "coffee_time_retries": 0,
+    }
+    result = await handle_coffee_time_loop(update, context)
+    assert result == MEDICATION
+    assert context.user_data["coffee_times"] == ["08:30", "14:00"]
+
+
+async def test_coffee_time_loop_invalid_retries():
+    update, context = await _make_message_update("bad")
+    context.user_data = {
+        "coffee_count": 2, "cup_index": 1,
+        "coffee_times": [], "coffee_time_retries": 0,
+    }
+    result = await handle_coffee_time_loop(update, context)
+    assert result == COFFEE_TIME_LOOP
+    assert context.user_data["coffee_time_retries"] == 1
+
+
+async def test_coffee_time_loop_three_failures_cancels():
+    update, context = await _make_message_update("bad")
+    context.user_data = {
+        "coffee_count": 2, "cup_index": 1,
+        "coffee_times": [], "coffee_time_retries": 2,
+    }
+    result = await handle_coffee_time_loop(update, context)
+    assert result == ConversationHandler.END
