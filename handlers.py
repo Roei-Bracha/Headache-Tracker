@@ -377,3 +377,43 @@ async def handle_medication(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
     context.user_data.clear()
     return ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# Daily check-in (scheduler callback — not a user handler, no @authorized)
+# ---------------------------------------------------------------------------
+
+async def send_daily_checkin(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Called by PTB JobQueue at 18:00 Asia/Jerusalem. Sends check-in if not yet logged."""
+    today = datetime.now(config.TZ).date().isoformat()
+    if database.get_today_log(today):
+        logger.info("Daily check-in: already logged for %s, skipping", today)
+        return
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("כן", callback_data="yes_headache"),
+        InlineKeyboardButton("לא", callback_data="no_headache"),
+    ]])
+    await context.bot.send_message(
+        chat_id=config.AUTHORIZED_USER_ID,
+        text="האם היה לך כאב ראש היום?",
+        reply_markup=keyboard,
+    )
+    logger.info("Daily check-in sent for %s", today)
+
+
+# ---------------------------------------------------------------------------
+# Standalone handler — no headache path
+# ---------------------------------------------------------------------------
+
+@authorized
+async def handle_no_headache(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    weather = await fetch_weather()
+    data = _build_log_data({}, weather, had_headache=False)
+    log_id = database.insert_log_with_coffees(data, [])
+    logger.info("Saved negative log #%d", log_id)
+
+    await query.edit_message_text("נשמר. תרגיש טוב.")
