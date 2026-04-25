@@ -73,7 +73,7 @@ headache-tracker/
 ├── .gitignore
 ├── README.md
 └── data/
-    └── .gitkeep        # head_map.jpg placed here at deploy time; headaches.db lives here too
+    └── .gitkeep        # head_map.png placed here at deploy time; headaches.db lives here too
 ```
 
 ---
@@ -99,7 +99,7 @@ State functions store results in `context.user_data[<db_column_name>]`. Retry co
 
 ```
 /log or yes_headache
-    → LOCATION          inline keyboard (7 options, 2 cols) + head_map.jpg if present
+    → LOCATION          inline keyboard (7 options, 2 cols) + head_map.png if present
     → PAIN_TYPE         inline keyboard (3 options, 1 row)
     → INTENSITY         inline keyboard 1–10 (2 rows of 5)
     → ONSET             free text HH:MM, max 3 retries, then cancel
@@ -231,7 +231,7 @@ AUTHORIZED_USER_ID = int(os.getenv("AUTHORIZED_USER_ID") or _fail("AUTHORIZED_US
 TZ                 = ZoneInfo(os.getenv("TZ", "Asia/Jerusalem"))
 DB_PATH            = "/app/data/headaches.db"
 OWM_LAT, OWM_LON   = 32.0556, 34.8550
-HEAD_MAP_PATH      = "./data/head_map.jpg"
+HEAD_MAP_PATH      = "./data/head_map.png"
 CHECKIN_HOUR       = 18
 CHECKIN_MINUTE     = 0
 ```
@@ -251,7 +251,7 @@ handler: stdout (StreamHandler)
 ```
 
 - `ERROR`: weather fetch failures, unexpected DB errors
-- `WARNING`: unauthorized access attempts (with user ID), missing head_map.jpg
+- `WARNING`: unauthorized access attempts (with user ID), missing head_map.png
 - `INFO`: startup, scheduler fires, log saved (with row id)
 
 ---
@@ -269,7 +269,7 @@ handler: stdout (StreamHandler)
 - Service: `headache-bot`
 - `restart: unless-stopped`
 - `env_file: .env`
-- Volume: `./data:/app/data` (DB + head_map.jpg)
+- Volume: `./data:/app/data` (DB + head_map.png)
 - No exposed ports (outbound long polling only)
 
 ---

@@ -167,7 +167,7 @@ TZ = ZoneInfo(os.getenv("TZ", "Asia/Jerusalem"))
 DB_PATH: str = os.getenv("DB_PATH", "/app/data/headaches.db")
 OWM_LAT: float = 32.0556
 OWM_LON: float = 34.8550
-HEAD_MAP_PATH: str = "./data/head_map.jpg"
+HEAD_MAP_PATH: str = "./data/head_map.png"
 CHECKIN_HOUR: int = 18
 CHECKIN_MINUTE: int = 0
 
@@ -2086,10 +2086,10 @@ Access Portainer at `http://<LXC_IP>:9000`.
 Upload the labeled head illustration to the data directory on the LXC:
 
 ```bash
-scp head_map.jpg root@<LXC_IP>:/path/to/project/data/head_map.jpg
+scp head_map.png root@<LXC_IP>:/path/to/project/data/head_map.png
 ```
 
-The bot loads it from `/app/data/head_map.jpg` inside the container (bind-mounted from `./data`). If the file is missing, the bot sends text only and logs a warning — it will not crash.
+The bot loads it from `/app/data/head_map.png` inside the container (bind-mounted from `./data`). If the file is missing, the bot sends text only and logs a warning — it will not crash.
 
 ## Verify Deployment
 

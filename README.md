@@ -36,48 +36,53 @@ newgrp docker
 docker run hello-world
 ```
 
-### 3. Install Portainer CE
+### 3. Install Komodo
+
+Komodo is a Docker/Compose management UI. Install the Komodo Periphery agent on the LXC (it connects to a central Komodo Core instance):
 
 ```bash
-docker volume create portainer_data
-docker run -d -p 9000:9000 --name portainer \
-  --restart=always \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v portainer_data:/data \
-  portainer/portainer-ce:latest
+curl -sSL https://raw.githubusercontent.com/mbecker20/komodo/main/scripts/setup-periphery.py | python3
 ```
 
-Access Portainer at `http://<LXC_IP>:9000`.
+Follow the prompts to connect the agent to your Komodo Core URL and generate an API key. Once connected, the LXC will appear as a server in your Komodo dashboard.
 
-## Deployment via Portainer
+If you don't have a Komodo Core instance yet, deploy one first — see the [Komodo docs](https://komo.do/docs/introduction).
 
-### Option A: Git repository (recommended)
+## Deployment via Komodo
 
-1. In Portainer: **Stacks → Add stack → Git repository**
-2. Repository URL: your fork/clone of this repo
-3. Under **Environment variables**, add:
-   - `TELEGRAM_BOT_TOKEN` = your token
-   - `OWM_API_KEY` = your OWM key
-   - `AUTHORIZED_USER_ID` = your Telegram numeric ID
-   - `TZ` = `Asia/Jerusalem`
-4. Click **Deploy the stack**
+### Option A: Stack from Git repository (recommended)
 
-### Option B: Web editor
+1. In Komodo: **Stacks → New Stack**
+2. Set **Server** to your LXC
+3. Set **Source** to Git and enter your repository URL
+4. Under **Environment**, add:
+   ```
+   TELEGRAM_BOT_TOKEN=your_token
+   OWM_API_KEY=your_owm_key
+   AUTHORIZED_USER_ID=your_telegram_id
+   TZ=Asia/Jerusalem
+   ```
+5. Click **Deploy**
 
-1. In Portainer: **Stacks → Add stack → Web editor**
-2. Paste the contents of `docker-compose.yml`
-3. Add the same environment variables as Option A
-4. Click **Deploy the stack**
+Komodo will clone the repo, run `docker compose up -d`, and track the stack.
+
+### Option B: Stack from compose file
+
+1. In Komodo: **Stacks → New Stack**
+2. Set **Server** to your LXC
+3. Set **Source** to UI and paste the contents of `docker-compose.yml`
+4. Add the same environment variables as Option A
+5. Click **Deploy**
 
 ## Place the Head Map Image
 
 Upload the labeled head illustration to the data directory on the LXC:
 
 ```bash
-scp head_map.jpg root@<LXC_IP>:/path/to/project/data/head_map.jpg
+scp head_map.png root@<LXC_IP>:/path/to/project/data/head_map.png
 ```
 
-The bot loads it from `/app/data/head_map.jpg` inside the container (bind-mounted from `./data`). If the file is missing, the bot sends text only and logs a warning — it will not crash.
+The bot loads it from `/app/data/head_map.png` inside the container (bind-mounted from `./data`). If the file is missing, the bot sends text only and logs a warning — it will not crash.
 
 ## Verify Deployment
 
@@ -109,13 +114,13 @@ docker cp headache-bot:/app/data/headaches.db ./headaches_backup_$(date +%Y%m%d)
 git pull
 ```
 
-Then in Portainer: open the stack → **Pull and redeploy**.
+Then in Komodo: open the stack → **Reclone & Redeploy** (or just **Redeploy** if using a branch that auto-pulls).
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| Timezone wrong in logs | Verify `TZ=Asia/Jerusalem` in your `.env` or Portainer env vars |
+| Timezone wrong in logs | Verify `TZ=Asia/Jerusalem` in your Komodo stack environment vars |
 | Daily check-in not firing at 18:00 | Run `docker logs headache-bot` at 18:05 and look for "Daily check-in" entries |
 | Weather always NULL | Test your OWM key: `curl "https://api.openweathermap.org/data/2.5/weather?lat=32.0556&lon=34.8550&units=metric&appid=YOUR_KEY"` |
 | Bot not responding | Confirm `AUTHORIZED_USER_ID` matches your actual Telegram ID (get it from @userinfobot) |
