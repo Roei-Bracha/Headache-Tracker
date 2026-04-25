@@ -435,3 +435,61 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await update.message.reply_document(document=f, filename=filename)
     finally:
         os.unlink(csv_path)
+
+
+# ---------------------------------------------------------------------------
+# /delete ConversationHandler
+# ---------------------------------------------------------------------------
+
+@authorized
+async def delete_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    logs = database.get_recent_logs(5)
+    if not logs:
+        await update.message.reply_text("אין רשומות למחיקה.")
+        return ConversationHandler.END
+
+    keyboard = []
+    for log in logs:
+        onset = log["onset_time_local"] or "—"
+        label = f"{log['log_date_local']} {onset} (#{log['id']})"
+        keyboard.append([InlineKeyboardButton(label, callback_data=f"delete_select_{log['id']}")])
+
+    await update.message.reply_text(
+        "בחר רשומה למחיקה:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+    return CHOOSE_RECORD
+
+
+@authorized
+async def handle_delete_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    log_id = int(query.data.split("_")[-1])
+    context.user_data["delete_log_id"] = log_id
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("כן", callback_data=f"delete_confirm_{log_id}"),
+        InlineKeyboardButton("לא", callback_data="delete_cancel"),
+    ]])
+    await query.edit_message_text(
+        f"למחוק רשומה #{log_id}?",
+        reply_markup=keyboard,
+    )
+    return CONFIRM_DELETE
+
+
+@authorized
+async def handle_delete_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "delete_cancel":
+        await query.edit_message_text("בוטל.")
+        return ConversationHandler.END
+
+    log_id = int(query.data.split("_")[-1])
+    database.delete_log(log_id)
+    logger.info("Deleted headache log #%d", log_id)
+    await query.edit_message_text("נמחק.")
+    return ConversationHandler.END
