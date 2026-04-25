@@ -169,3 +169,32 @@ async def handle_intensity(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         text="באיזו שעה זה התחיל? (פורמט: HH:MM, למשל 14:30)",
     )
     return ONSET
+
+
+@authorized
+async def handle_onset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    retries = context.user_data.get("onset_retries", 0)
+    parsed = parse_hhmm(update.message.text)
+
+    if parsed is None:
+        retries += 1
+        context.user_data["onset_retries"] = retries
+        if retries >= 3:
+            context.user_data.clear()
+            await update.message.reply_text("נסיון לא תקין שלוש פעמים. בוטל.")
+            return ConversationHandler.END
+        await update.message.reply_text("פורמט לא תקין. נסה שוב (HH:MM)")
+        return ONSET
+
+    context.user_data["onset_time_local"] = parsed
+    context.user_data["hydration_retries"] = 0
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("ליטרים", callback_data="liters"),
+        InlineKeyboardButton("כוסות", callback_data="cups"),
+    ]])
+    await _send_message(
+        update, context,
+        text="איך תרצה למדוד את המים ששתית היום?",
+        reply_markup=keyboard,
+    )
+    return HYDRATION_UNIT
