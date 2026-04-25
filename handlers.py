@@ -417,3 +417,21 @@ async def handle_no_headache(update: Update, context: ContextTypes.DEFAULT_TYPE)
     logger.info("Saved negative log #%d", log_id)
 
     await query.edit_message_text("נשמר. תרגיש טוב.")
+
+
+# ---------------------------------------------------------------------------
+# /export command
+# ---------------------------------------------------------------------------
+
+@authorized
+async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from datetime import date as _date
+    import os
+
+    filename = f"headache_logs_{_date.today().strftime('%Y%m%d')}.csv"
+    csv_path = database.export_to_csv()
+    try:
+        with open(csv_path, "rb") as f:
+            await update.message.reply_document(document=f, filename=filename)
+    finally:
+        os.unlink(csv_path)
