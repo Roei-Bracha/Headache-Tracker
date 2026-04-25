@@ -10,43 +10,13 @@ Personal Telegram bot for daily headache tracking. Produces structured SQLite da
 
 ## Proxmox LXC Setup
 
-### 1. Create the LXC container
+### 1. Create the LXC container with Docker support
 
-In Proxmox, go to **Create CT**:
-- Template: Debian 12 (bookworm)
-- CPU: 1 core
-- Memory: 512 MB
-- Disk: 4 GB
-- Network: DHCP or static IP
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/docker.sh)"
 
-After creation, go to **Options → Features** and enable:
-- `nesting=1`
-- `keyctl=1`
 
-These are required for Docker to run inside an LXC container.
-
-### 2. Install Docker inside the LXC
-
-Start the container and open a console:
-
-```bash
-curl -fsSL https://get.docker.com | sh
-usermod -aG docker $USER
-newgrp docker
-docker run hello-world
-```
-
-### 3. Install Komodo
-
-Komodo is a Docker/Compose management UI. Install the Komodo Periphery agent on the LXC (it connects to a central Komodo Core instance):
-
-```bash
-curl -sSL https://raw.githubusercontent.com/mbecker20/komodo/main/scripts/setup-periphery.py | python3
-```
-
-Follow the prompts to connect the agent to your Komodo Core URL and generate an API key. Once connected, the LXC will appear as a server in your Komodo dashboard.
-
-If you don't have a Komodo Core instance yet, deploy one first — see the [Komodo docs](https://komo.do/docs/introduction).
+### 2. Install Komodo
+https://community-scripts.org/scripts?q=docker
 
 ## Deployment via Komodo
 
@@ -70,7 +40,7 @@ Komodo will clone the repo, run `docker compose up -d`, and track the stack.
 
 1. In Komodo: **Stacks → New Stack**
 2. Set **Server** to your LXC
-3. Set **Source** to UI and paste the contents of `docker-compose.yml`
+3. Set **Source** to UI and paste the contents of `compose.yaml`
 4. Add the same environment variables as Option A
 5. Click **Deploy**
 
