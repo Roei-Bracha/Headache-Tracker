@@ -70,3 +70,102 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
     await update.message.reply_text("בוטל.")
     return ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# Log flow — entry points
+# ---------------------------------------------------------------------------
+
+def _location_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(config.LOCATION_LABELS["frontal"], callback_data="frontal"),
+            InlineKeyboardButton(config.LOCATION_LABELS["temporal"], callback_data="temporal"),
+        ],
+        [
+            InlineKeyboardButton(config.LOCATION_LABELS["behind_eye"], callback_data="behind_eye"),
+            InlineKeyboardButton(config.LOCATION_LABELS["occipital"], callback_data="occipital"),
+        ],
+        [
+            InlineKeyboardButton(config.LOCATION_LABELS["top"], callback_data="top"),
+            InlineKeyboardButton(config.LOCATION_LABELS["band"], callback_data="band"),
+        ],
+        [
+            InlineKeyboardButton(config.LOCATION_LABELS["one_side"], callback_data="one_side"),
+        ],
+    ])
+
+
+async def _send_location_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    head_map = Path(config.HEAD_MAP_PATH)
+    markup = _location_keyboard()
+    if head_map.exists():
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=head_map.open("rb"),
+            caption="איפה כואב לך?",
+            reply_markup=markup,
+        )
+    else:
+        logger.warning("Head map image not found at %s", config.HEAD_MAP_PATH)
+        await _send_message(update, context, text="איפה כואב לך?", reply_markup=markup)
+
+
+@authorized
+async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Entry point for /log command."""
+    await _send_location_question(update, context)
+    return LOCATION
+
+
+@authorized
+async def ask_location_from_checkin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Entry point for yes_headache callback from daily check-in."""
+    query = update.callback_query
+    await query.answer()
+    await _send_location_question(update, context)
+    return LOCATION
+
+
+# ---------------------------------------------------------------------------
+# Log flow — states
+# ---------------------------------------------------------------------------
+
+@authorized
+async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data["location"] = query.data
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton(config.PAIN_TYPE_LABELS["throbbing"], callback_data="throbbing"),
+        InlineKeyboardButton(config.PAIN_TYPE_LABELS["sharp"], callback_data="sharp"),
+        InlineKeyboardButton(config.PAIN_TYPE_LABELS["dull"], callback_data="dull"),
+    ]])
+    await _send_message(update, context, text="מה סוג הכאב?", reply_markup=keyboard)
+    return PAIN_TYPE
+
+
+@authorized
+async def handle_pain_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data["pain_type"] = query.data
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(1, 6)],
+        [InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(6, 11)],
+    ])
+    await _send_message(update, context, text="מה עוצמת הכאב?", reply_markup=keyboard)
+    return INTENSITY
+
+
+@authorized
+async def handle_intensity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data["intensity"] = int(query.data)
+    context.user_data["onset_retries"] = 0
+    await _send_message(
+        update, context,
+        text="באיזו שעה זה התחיל? (פורמט: HH:MM, למשל 14:30)",
+    )
+    return ONSET
