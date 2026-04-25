@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 
@@ -16,7 +17,7 @@ TZ = ZoneInfo(os.getenv("TZ", "Asia/Jerusalem"))
 DB_PATH: str = os.getenv("DB_PATH", "/app/data/headaches.db")
 OWM_LAT: float = 32.0556
 OWM_LON: float = 34.8550
-HEAD_MAP_PATH: str = "./data/head_map.png"
+HEAD_MAP_PATH: str = str(Path(__file__).parent / "data" / "head_map.png")
 CHECKIN_HOUR: int = 18
 CHECKIN_MINUTE: int = 0
 
