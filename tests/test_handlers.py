@@ -187,3 +187,35 @@ async def test_coffee_time_loop_three_failures_cancels():
     }
     result = await handle_coffee_time_loop(update, context)
     assert result == ConversationHandler.END
+
+
+from handlers import _build_log_data
+
+
+def test_build_log_data_positive():
+    user_data = {
+        "location": "frontal",
+        "pain_type": "throbbing",
+        "intensity": 7,
+        "onset_time_local": "10:00",
+        "hydration_unit": "liters",
+        "hydration_liters": 2.0,
+        "hydration_raw_amount": 2.0,
+        "coffee_count": 1,
+        "medication": "none",
+    }
+    weather = {"temp_c": 22.5, "humidity_pct": 60, "pressure_hpa": 1013}
+    data = _build_log_data(user_data, weather, had_headache=True)
+    assert data["had_headache"] == 1
+    assert data["location"] == "frontal"
+    assert data["weather_temp_c"] == 22.5
+    assert data["weather_fetch_ok"] == 1
+    assert "logged_at_utc" in data
+    assert "log_date_local" in data
+
+
+def test_build_log_data_no_weather():
+    data = _build_log_data({}, None, had_headache=False)
+    assert data["had_headache"] == 0
+    assert data["weather_temp_c"] is None
+    assert data["weather_fetch_ok"] == 0

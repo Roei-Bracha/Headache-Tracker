@@ -332,3 +332,48 @@ async def _ask_medication(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     ])
     await _send_message(update, context, text="האם לקחת תרופה?", reply_markup=keyboard)
     return MEDICATION
+
+
+def _build_log_data(user_data: dict, weather: dict | None, had_headache: bool) -> dict:
+    """Build the dict for insert_log_with_coffees from conversation user_data."""
+    now_utc = datetime.now(timezone.utc)
+    now_local = now_utc.astimezone(config.TZ)
+    return {
+        "logged_at_utc": now_utc.isoformat(),
+        "logged_at_local": now_local.isoformat(),
+        "log_date_local": now_local.date().isoformat(),
+        "had_headache": 1 if had_headache else 0,
+        "location": user_data.get("location"),
+        "pain_type": user_data.get("pain_type"),
+        "intensity": user_data.get("intensity"),
+        "onset_time_local": user_data.get("onset_time_local"),
+        "hydration_unit": user_data.get("hydration_unit"),
+        "hydration_liters": user_data.get("hydration_liters"),
+        "hydration_raw_amount": user_data.get("hydration_raw_amount"),
+        "coffee_count": user_data.get("coffee_count"),
+        "medication": user_data.get("medication"),
+        "weather_temp_c": weather["temp_c"] if weather else None,
+        "weather_humidity_pct": weather["humidity_pct"] if weather else None,
+        "weather_pressure_hpa": weather["pressure_hpa"] if weather else None,
+        "weather_fetch_ok": 1 if weather else 0,
+    }
+
+
+@authorized
+async def handle_medication(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data["medication"] = query.data
+
+    weather = await fetch_weather()
+    data = _build_log_data(context.user_data, weather, had_headache=True)
+    coffee_times = context.user_data.get("coffee_times", [])
+    log_id = database.insert_log_with_coffees(data, coffee_times)
+    logger.info("Saved headache log #%d", log_id)
+
+    await _send_message(
+        update, context,
+        text=f"תודה, תרגיש טוב! הנתונים נשמרו. (#{log_id})",
+    )
+    context.user_data.clear()
+    return ConversationHandler.END
