@@ -198,3 +198,74 @@ async def handle_onset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         reply_markup=keyboard,
     )
     return HYDRATION_UNIT
+
+
+@authorized
+async def handle_hydration_unit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    unit = query.data  # 'liters' or 'cups'
+    context.user_data["hydration_unit"] = unit
+    context.user_data["hydration_retries"] = 0
+
+    if unit == "liters":
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(v, callback_data=v) for v in ["1", "1.5", "2", "2.5"]],
+            [InlineKeyboardButton(v, callback_data=v) for v in ["3", "3.5", "4"]],
+        ])
+        await _send_message(
+            update, context, text="כמה ליטרים שתית?", reply_markup=keyboard
+        )
+    else:
+        await _send_message(
+            update, context, text="כמה כוסות שתית? (מספר בלבד, 0–20)"
+        )
+    return HYDRATION_AMOUNT
+
+
+@authorized
+async def handle_hydration_amount_inline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handles liter selection via inline button."""
+    query = update.callback_query
+    await query.answer()
+    amount = float(query.data)
+    context.user_data["hydration_raw_amount"] = amount
+    context.user_data["hydration_liters"] = amount
+    return await _ask_coffee_count(update, context)
+
+
+@authorized
+async def handle_hydration_amount_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handles cups count via text input."""
+    retries = context.user_data.get("hydration_retries", 0)
+    text = update.message.text.strip()
+
+    try:
+        cups = int(text)
+        if not (0 <= cups <= 20):
+            raise ValueError("out of range")
+    except ValueError:
+        retries += 1
+        context.user_data["hydration_retries"] = retries
+        if retries >= 3:
+            context.user_data.clear()
+            await update.message.reply_text("נסיון לא תקין שלוש פעמים. בוטל.")
+            return ConversationHandler.END
+        await update.message.reply_text("מספר לא תקין. נסה שוב (0–20)")
+        return HYDRATION_AMOUNT
+
+    context.user_data["hydration_raw_amount"] = cups
+    context.user_data["hydration_liters"] = cups * 0.25
+    return await _ask_coffee_count(update, context)
+
+
+async def _ask_coffee_count(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(6)
+    ]])
+    await _send_message(
+        update, context,
+        text="כמה כוסות קפה שתית היום?",
+        reply_markup=keyboard,
+    )
+    return COFFEE_COUNT

@@ -64,3 +64,61 @@ async def test_onset_three_failures_cancels():
     context.user_data["onset_retries"] = 2
     result = await handle_onset(update, context)
     assert result == ConversationHandler.END
+
+
+from handlers import handle_hydration_unit, handle_hydration_amount_inline, handle_hydration_amount_text, HYDRATION_AMOUNT, COFFEE_COUNT
+
+
+async def _make_callback_update(data: str, user_id: int = 42) -> tuple:
+    update = MagicMock()
+    update.effective_user.id = user_id
+    update.effective_chat.id = 100
+    update.callback_query = MagicMock()
+    update.callback_query.data = data
+    update.callback_query.answer = AsyncMock()
+    context = MagicMock()
+    context.user_data = {}
+    context.bot.send_message = AsyncMock()
+    return update, context
+
+
+async def test_hydration_unit_liters_sends_buttons():
+    update, context = await _make_callback_update("liters")
+    result = await handle_hydration_unit(update, context)
+    assert result == HYDRATION_AMOUNT
+    assert context.user_data["hydration_unit"] == "liters"
+
+
+async def test_hydration_unit_cups_sends_text():
+    update, context = await _make_callback_update("cups")
+    result = await handle_hydration_unit(update, context)
+    assert result == HYDRATION_AMOUNT
+    assert context.user_data["hydration_unit"] == "cups"
+
+
+async def test_hydration_amount_inline_liters():
+    update, context = await _make_callback_update("2.5")
+    context.user_data["hydration_unit"] = "liters"
+    result = await handle_hydration_amount_inline(update, context)
+    assert result == COFFEE_COUNT
+    assert context.user_data["hydration_liters"] == 2.5
+    assert context.user_data["hydration_raw_amount"] == 2.5
+
+
+async def test_hydration_amount_text_cups_converts():
+    update, context = await _make_message_update("8")
+    context.user_data["hydration_unit"] = "cups"
+    context.user_data["hydration_retries"] = 0
+    result = await handle_hydration_amount_text(update, context)
+    assert result == COFFEE_COUNT
+    assert context.user_data["hydration_raw_amount"] == 8
+    assert context.user_data["hydration_liters"] == pytest.approx(2.0)
+
+
+async def test_hydration_amount_text_invalid_cups():
+    update, context = await _make_message_update("99")
+    context.user_data["hydration_unit"] = "cups"
+    context.user_data["hydration_retries"] = 0
+    result = await handle_hydration_amount_text(update, context)
+    assert result == HYDRATION_AMOUNT
+    assert context.user_data["hydration_retries"] == 1
